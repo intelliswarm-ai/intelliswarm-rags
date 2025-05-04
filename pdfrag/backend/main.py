@@ -1,5 +1,5 @@
 import logging
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from rag import load_files, query_rag
 
 # Set up logging
@@ -18,10 +18,15 @@ async def upload_files(file: UploadFile = File(...)):
     return {"status": "uploaded", "details": result}
 
 @app.post("/ask")
-async def ask_question(payload: dict):
-    logger.info(f"Received question: {payload.get('question')}")
-    question = payload.get("question")
-    image_data = payload.get("image")  # base64 image or path
+async def ask_question(
+    question: str = Form(...),
+    file: UploadFile = File(None)
+):
+    logger.info(f"Received question: {question}")
+    image_data = None
+    if file is not None:
+        image_data = await file.read()
+        logger.info(f"Received image file: {file.filename}, size: {len(image_data)} bytes")
     answer = query_rag(question, image_data)
     logger.info("Question answered")
     return {"answer": answer}
