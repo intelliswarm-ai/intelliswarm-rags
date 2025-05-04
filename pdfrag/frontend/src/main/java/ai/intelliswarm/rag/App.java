@@ -11,7 +11,7 @@ import javafx.scene.input.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import okhttp3.*;
-import com.google.gson.*;
+import okio.BufferedSource;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
@@ -24,12 +24,13 @@ public class App extends Application {
             .build();
     private static final String BACKEND_URL = "http://localhost:8000/ask";
     private File selectedImageFile = null;
+    private TextArea output;
 
     @Override
     public void start(Stage stage) {
         TextField input = new TextField();
         Button askBtn = new Button("Ask");
-        TextArea output = new TextArea();
+        output = new TextArea();
         output.setEditable(false);
 
         // Image preview
@@ -118,11 +119,21 @@ public class App extends Application {
                     .post(requestBody)
                     .build();
 
+            // Streaming response handling
             try (Response response = client.newCall(request).execute()) {
                 if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
-                String responseBody = response.body().string();
-                JsonObject obj = new Gson().fromJson(responseBody, JsonObject.class);
-                return obj.has("answer") ? obj.get("answer").getAsString() : responseBody;
+
+                BufferedSource source = response.body().source();
+                StringBuilder answer = new StringBuilder();
+                while (!source.exhausted()) {
+                    String chunk = source.readUtf8Line();
+                    if (chunk != null && !chunk.isEmpty()) {
+                        answer.append(chunk);
+                        String current = answer.toString();
+                        Platform.runLater(() -> output.setText(current));
+                    }
+                }
+                return answer.toString();
             }
         } catch (Exception e) {
             return "Error: " + e.getMessage();
