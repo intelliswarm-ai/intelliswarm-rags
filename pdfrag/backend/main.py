@@ -35,7 +35,7 @@ async def ask_question(
 
     ollama_url = "http://127.0.0.1:11434/api/generate"
     data = {
-        "model": "llava",
+        "model": "llama3.2-vision",
         "prompt": question,
     }
     if image_b64:
