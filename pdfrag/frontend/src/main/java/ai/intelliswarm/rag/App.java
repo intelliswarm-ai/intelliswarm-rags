@@ -15,6 +15,9 @@ import okio.BufferedSource;
 import java.io.*;
 import java.nio.file.Files;
 import java.util.concurrent.TimeUnit;
+import javafx.embed.swing.SwingFXUtils;
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 
 public class App extends Application {
     private static final OkHttpClient client = new OkHttpClient.Builder()
@@ -25,6 +28,7 @@ public class App extends Application {
     private static final String BACKEND_URL = "http://localhost:8000/ask";
     private File selectedImageFile = null;
     private TextArea output;
+    private ImageView imageView;
 
     @Override
     public void start(Stage stage) {
@@ -34,11 +38,11 @@ public class App extends Application {
         output.setEditable(false);
 
         // Image preview
-        ImageView imageView = new ImageView();
+        imageView = new ImageView();
         imageView.setFitWidth(200);
         imageView.setPreserveRatio(true);
 
-        Label dropLabel = new Label("Drag and drop an image here");
+        Label dropLabel = new Label("Drag and drop or paste (Ctrl+V) an image here");
         dropLabel.setStyle("-fx-border-color: gray; -fx-padding: 20; -fx-alignment: center;");
         dropLabel.setMaxWidth(Double.MAX_VALUE);
         dropLabel.setAlignment(Pos.CENTER);
@@ -70,9 +74,7 @@ public class App extends Application {
             if (db.hasFiles()) {
                 File file = db.getFiles().get(0);
                 if (isImageFile(file)) {
-                    selectedImageFile = file;
-                    Image img = new Image(file.toURI().toString());
-                    imageView.setImage(img);
+                    setSelectedImageFile(file);
                     output.setText("Image ready: " + file.getName());
                     success = true;
                 } else {
@@ -88,14 +90,43 @@ public class App extends Application {
         root.setPrefHeight(500);
         root.setAlignment(Pos.TOP_CENTER);
 
+        // Clipboard paste support (Ctrl+V)
+        output.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.V && event.isControlDown()) {
+                Clipboard clipboard = Clipboard.getSystemClipboard();
+                if (clipboard.hasImage()) {
+                    Image img = clipboard.getImage();
+                    imageView.setImage(img);
+                    output.setText("Image pasted from clipboard.");
+                    // Save the image to a temporary file for upload
+                    try {
+                        File tempFile = File.createTempFile("pasted_image", ".png");
+                        tempFile.deleteOnExit();
+                        BufferedImage bImage = SwingFXUtils.fromFXImage(img, null);
+                        ImageIO.write(bImage, "png", tempFile);
+                        selectedImageFile = tempFile;
+                    } catch (Exception ex) {
+                        output.setText("Failed to save pasted image: " + ex.getMessage());
+                    }
+                }
+            }
+        });
+        Platform.runLater(output::requestFocus);
+
         stage.setScene(new Scene(root));
-        stage.setTitle("Local RAG UI");
+        stage.setTitle("Intelliswarm.ai RAG UI");
         stage.show();
     }
 
     private boolean isImageFile(File file) {
         String name = file.getName().toLowerCase();
         return name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".gif");
+    }
+
+    private void setSelectedImageFile(File file) {
+        selectedImageFile = file;
+        Image img = new Image(file.toURI().toString());
+        imageView.setImage(img);
     }
 
     private String askWithImage(String question, File imageFile) {
@@ -108,8 +139,7 @@ public class App extends Application {
                 builder.addFormDataPart(
                     "file",
                     imageFile.getName(),
-                    RequestBody.create(imageFile, MediaType.parse(Files.probeContentType(imageFile.toPath())))
-                );
+                    RequestBody.create(imageFile, MediaType.parse(Files.probeContentType(imageFile.toPath()))));
             }
 
             RequestBody requestBody = builder.build();
@@ -128,9 +158,18 @@ public class App extends Application {
                 while (!source.exhausted()) {
                     String chunk = source.readUtf8Line();
                     if (chunk != null && !chunk.isEmpty()) {
-                        answer.append(chunk);
-                        String current = answer.toString();
-                        Platform.runLater(() -> output.setText(current));
+                        answer.append(chunk).append(" ");
+                        String[] words = answer.toString().split("\\s+");
+                        StringBuilder formatted = new StringBuilder();
+                        for (int i = 0; i < words.length; i++) {
+                            formatted.append(words[i]);
+                            if ((i + 1) % 40 == 0) {
+                                formatted.append('\n');
+                            } else {
+                                formatted.append(' ');
+                            }
+                        }
+                        Platform.runLater(() -> output.setText(formatted.toString().trim()));
                     }
                 }
                 return answer.toString();
