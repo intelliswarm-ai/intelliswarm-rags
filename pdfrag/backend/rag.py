@@ -36,11 +36,6 @@ else:
     faiss_index = FAISS.load_local(VECTOR_STORE_DIR, embedding_model, allow_dangerous_deserialization=True)
     logger.info("FAISS index loaded")
 
-# Initialize LLM
-logger.info("Initializing LLM...")
-llm = OllamaLLM(model="mistral")  # or llava for multimodal
-logger.info("LLM initialized")
-
 # Initialize text splitter
 text_splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000,
@@ -108,8 +103,9 @@ def load_files(filename, content):
         return f"Error processing {filename}: {str(e)}"
 
 
-def query_rag(question, image_data=None):
-    logger.info(f"Processing question: {question}")
+def query_rag(question, image_data=None, model_name="llama3.2-vision"):
+    logger.info(f"Using model: {model_name}")
+    llm = OllamaLLM(model=model_name)
     retriever = faiss_index.as_retriever()
     qa = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
     result = qa.run(question)
