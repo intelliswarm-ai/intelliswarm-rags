@@ -11,4 +11,6 @@ ollama
 python-multipart
 PyPDF2
 httpx
-gitpython 
+gitpython
+pytest
+requests 
