@@ -9,4 +9,6 @@ faiss-cpu
 sentence-transformers
 ollama
 python-multipart
-PyPDF2 
+PyPDF2
+httpx
+gitpython 

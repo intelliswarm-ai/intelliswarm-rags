@@ -8,8 +8,11 @@
     <version>1.0-SNAPSHOT</version>
 
     <properties>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
         <javafx.version>17.0.1</javafx.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencies>
@@ -46,7 +49,8 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>com.example.App</mainClass>
+                    <mainClass>ai.intelliswarm.rag.App</mainClass>
+                    <executable>${java.home}/bin/java</executable>
                 </configuration>
             </plugin>
         </plugins>
